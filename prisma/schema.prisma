@@ -24,6 +24,24 @@ model Thesis {
   sources           Source[]
   comments          Comment[]
   matrices          LiteratureMatrix[]
+  drafts            ThesisDraft[]
+}
+
+// Full uploaded thesis draft record for auditing history
+model ThesisDraft {
+  id                String   @id @default(cuid())
+  fileName          String
+  filePath          String   @default("")
+  fileSize          Int      @default(0)
+  textLength        Int      @default(0)
+  aiScore           Int      @default(0) // computed AI written probability score (e.g. 18%)
+  passiveVoiceCount Int      @default(0) // count of passive voice indicators
+  longSentences     Int      @default(0) // count of sentences > 30 words
+  citationCount     Int      @default(0) // count of total recognized citation formats
+  unresolvedRefs    String   @default("") // comma-separated unresolved citation warnings
+  createdAt         DateTime @default(now())
+  thesis            Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  thesisId          String
 }
 
 // Academic source – journal, book, conference paper, etc.

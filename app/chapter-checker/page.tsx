@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, ArrowRight, Loader2, Sparkles, RefreshCw, AlertCircle, 
-  CheckCircle, FileText, BarChart2, BookOpen, UserCheck 
+  CheckCircle, FileText, BarChart2, BookOpen, UserCheck, UploadCloud, 
+  Trash2, HelpCircle, AlertTriangle, Eye, ShieldAlert, Award 
 } from 'lucide-react';
 
 const colloquialDict: Record<string, string> = {
@@ -23,8 +24,21 @@ const colloquialDict: Record<string, string> = {
   easy: 'facilitated / uncomplicated / feasible',
 };
 
+interface ThesisDraft {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  textLength: number;
+  aiScore: number;
+  passiveVoiceCount: number;
+  longSentences: number;
+  citationCount: number;
+  unresolvedRefs: string;
+  createdAt: string;
+}
+
 export default function ChapterCheckerPage() {
-  const [activeTab, setActiveTab] = useState<'structure' | 'tone'>('structure');
+  const [activeTab, setActiveTab] = useState<'structure' | 'tone' | 'full'>('structure');
 
   // Tab 1: Structural Checker State
   const [draft, setDraft] = useState('');
@@ -40,7 +54,33 @@ export default function ChapterCheckerPage() {
     highlights: Array<{ original: string; replacement: string; idx: number }>;
   } | null>(null);
 
+  // Tab 3: Full Thesis Audit State
+  const [drafts, setDrafts] = useState<ThesisDraft[]>([]);
+  const [activeDraft, setActiveDraft] = useState<ThesisDraft | null>(null);
+  const [uploadingDraft, setUploadingDraft] = useState(false);
+  const [draftFile, setDraftFile] = useState<File | null>(null);
+
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (activeTab === 'full') {
+      fetchDrafts();
+    }
+  }, [activeTab]);
+
+  const fetchDrafts = async () => {
+    try {
+      const res = await fetch('/api/drafts');
+      const data = await res.json();
+      setDrafts(data);
+      if (data.length > 0 && !activeDraft) {
+        setActiveDraft(data[0]);
+      }
+    } catch (err) {
+      setError('Failed to fetch thesis drafts.');
+    }
+  };
 
   // Handle Tab 1 Structure Check
   const handleAnalyzeStructure = async (e: React.FormEvent) => {
@@ -80,7 +120,6 @@ export default function ChapterCheckerPage() {
       const highlights: Array<{ original: string; replacement: string; idx: number }> = [];
       let occurrences = 0;
 
-      // Scan words
       Object.keys(colloquialDict).forEach((word) => {
         const regex = new RegExp(`\\b${word}\\b`, 'gi');
         let match;
@@ -94,29 +133,63 @@ export default function ChapterCheckerPage() {
         }
       });
 
-      // Calculate score
       const baseScore = Math.max(20, 100 - occurrences * 8);
 
       setToneReport({
         score: baseScore,
-        highlights: highlights.slice(0, 15), // cap highlights for UI readability
+        highlights: highlights.slice(0, 15),
       });
       setAnalyzingTone(false);
     }, 800);
+  };
+
+  // Handle Tab 3 Full Draft Audit Upload
+  const handleDraftUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draftFile) return;
+
+    try {
+      setUploadingDraft(true);
+      setError('');
+      setSuccess('');
+
+      const formData = new FormData();
+      formData.append('file', draftFile);
+
+      const res = await fetch('/api/drafts/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to upload and audit the draft.');
+      }
+
+      const newDraft = await res.json();
+      setDrafts([newDraft, ...drafts]);
+      setActiveDraft(newDraft);
+      setDraftFile(null);
+      setSuccess('Thesis draft successfully uploaded and audited!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to upload and audit full thesis draft.');
+    } finally {
+      setUploadingDraft(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Top Banner */}
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-600">Chapter Structuring Suite</p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Academic Review Panel</h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-600">Academic Review Panel</p>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Thesis Quality & Structure Auditor</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Verify thesis drafts against structural citation parameters and scan paragraphs for colloquial vocabulary. Ensure your language complies with scholarly standards.
+          Verify thesis drafts against structural criteria, check for colloquial wording, and upload full draft files to audit AI probability, cross-reference citations, and grammar density.
         </p>
 
         {/* Tab Toggle Navigation */}
-        <div className="flex gap-4 mt-6 border-b border-slate-100 pb-px">
+        <div className="flex flex-wrap gap-4 mt-6 border-b border-slate-100 pb-px">
           <button
             onClick={() => setActiveTab('structure')}
             className={`pb-3 text-xs font-bold uppercase tracking-wider transition ${
@@ -125,7 +198,7 @@ export default function ChapterCheckerPage() {
                 : 'text-slate-500 hover:text-slate-950'
             }`}
           >
-            Structure & Content Checklist
+            Structure Checklist
           </button>
           <button
             onClick={() => setActiveTab('tone')}
@@ -135,7 +208,17 @@ export default function ChapterCheckerPage() {
                 : 'text-slate-500 hover:text-slate-950'
             }`}
           >
-            Scholarly Tone & Vocabulary Check
+            Scholarly Tone Check
+          </button>
+          <button
+            onClick={() => setActiveTab('full')}
+            className={`pb-3 text-xs font-bold uppercase tracking-wider transition ${
+              activeTab === 'full' 
+                ? 'border-b-2 border-indigo-600 text-indigo-600' 
+                : 'text-slate-500 hover:text-slate-950'
+            }`}
+          >
+            Full Thesis Audit (AI & Citations)
           </button>
         </div>
       </div>
@@ -147,10 +230,16 @@ export default function ChapterCheckerPage() {
         </div>
       )}
 
+      {success && (
+        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800 border border-emerald-100">
+          <CheckCircle size={18} className="shrink-0" />
+          <p>{success}</p>
+        </div>
+      )}
+
       {/* --- TAB 1: STRUCTURAL CHECKER --- */}
       {activeTab === 'structure' && (
         <div className="grid gap-6 lg:grid-cols-5">
-          {/* Left Inputs */}
           <form onSubmit={handleAnalyzeStructure} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3 space-y-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
               <FileText size={18} className="text-indigo-600" />
@@ -161,7 +250,7 @@ export default function ChapterCheckerPage() {
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Paste Chapter Text</label>
               <textarea
                 rows={12}
-                placeholder="Paste the introduction or methodology chapter text here..."
+                placeholder="Paste the introduction or methodology chapter text here to audit..."
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/20 px-4 py-3 text-sm font-medium outline-none focus:border-indigo-500 select-text leading-relaxed"
@@ -180,7 +269,6 @@ export default function ChapterCheckerPage() {
             </div>
           </form>
 
-          {/* Right Results Panel */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2 space-y-6">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
               <BarChart2 size={18} className="text-indigo-600" />
@@ -194,9 +282,9 @@ export default function ChapterCheckerPage() {
                     {score}%
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-950">Structural Checklist Alignment</h4>
+                    <h4 className="text-sm font-bold text-slate-950">Checklist Alignment</h4>
                     <p className="text-xs text-slate-500 font-medium mt-0.5 leading-normal">
-                      Percentage computed based on key academic requirements, citation depth, and research constraints.
+                      Percentage computed based on structural constraints and citation density.
                     </p>
                   </div>
                 </div>
@@ -228,10 +316,9 @@ export default function ChapterCheckerPage() {
         </div>
       )}
 
-      {/* --- TAB 2: SCHOLARLY TONE & VOCAB CHECKER --- */}
+      {/* --- TAB 2: SCHOLARLY TONE CHECKER --- */}
       {activeTab === 'tone' && (
         <div className="grid gap-6 lg:grid-cols-5">
-          {/* Left Inputs */}
           <form onSubmit={handleAnalyzeTone} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3 space-y-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
               <UserCheck size={18} className="text-indigo-600" />
@@ -261,7 +348,6 @@ export default function ChapterCheckerPage() {
             </div>
           </form>
 
-          {/* Right Results Panel */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2 space-y-6">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
               <BarChart2 size={18} className="text-indigo-600" />
@@ -277,7 +363,7 @@ export default function ChapterCheckerPage() {
                   <div>
                     <h4 className="text-sm font-bold text-slate-950">Academic Vocabulary Score</h4>
                     <p className="text-xs text-slate-500 font-medium mt-0.5 leading-normal">
-                      Percentage computed based on occurrences of colloquial expressions or informal descriptors.
+                      Percentage computed based on occurrences of colloquial expressions.
                     </p>
                   </div>
                 </div>
@@ -313,6 +399,231 @@ export default function ChapterCheckerPage() {
                 <ShieldCheck size={48} className="text-slate-200 mx-auto mb-4" />
                 <p className="text-xs font-bold text-slate-800">No Paragraph Checked</p>
                 <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto leading-normal">Paste your writing sample on the left to verify scholarly tone.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB 3: FULL THESIS AUDIT --- */}
+      {activeTab === 'full' && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left Column: Dropzone & Upload History */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Upload form */}
+            <form onSubmit={handleDraftUpload} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-1.5">
+                <UploadCloud size={16} className="text-indigo-600" />
+                Upload Thesis Draft
+              </h3>
+              
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 hover:bg-slate-50 transition cursor-pointer relative flex flex-col items-center justify-center text-center">
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setDraftFile(e.target.files[0]);
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+                <BookOpen size={28} className="text-indigo-600 mb-2 animate-pulse" />
+                <p className="text-xs font-bold text-slate-900 leading-snug">
+                  {draftFile ? `Selected: ${draftFile.name}` : 'Drop complete thesis draft file here'}
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">PDF, DOCX, TXT</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={uploadingDraft || !draftFile}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-white py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition disabled:opacity-40"
+              >
+                {uploadingDraft && <Loader2 className="animate-spin" size={14} />}
+                Audit Uploaded Draft
+              </button>
+            </form>
+
+            {/* Audit History List */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-2 border-b border-slate-100">
+                Audit History
+              </h3>
+              {drafts.length === 0 ? (
+                <p className="text-xs text-slate-400 italic font-medium py-4 text-center">No drafts uploaded yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {drafts.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => setActiveDraft(d)}
+                      className={`w-full text-left rounded-xl border p-3.5 transition flex flex-col gap-1.5 ${
+                        activeDraft?.id === d.id
+                          ? 'border-indigo-600 bg-indigo-50/15'
+                          : 'border-slate-100 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">
+                        {new Date(d.createdAt).toLocaleDateString('tr-TR')}
+                      </span>
+                      <h4 className="text-xs font-bold text-slate-900 truncate leading-snug">{d.fileName}</h4>
+                      <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                        <span>{Math.round(d.fileSize / 1024)} KB</span>
+                        <span className={`font-bold ${d.aiScore > 35 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          AI Score: {d.aiScore}%
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Columns: Analysis Dashboard */}
+          <div className="lg:col-span-2 space-y-6">
+            {activeDraft ? (
+              <div className="space-y-6">
+                {/* Dashboard Stats Banner */}
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm space-y-6 select-text">
+                  <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Audit Dashboard Report</p>
+                      <h2 className="text-lg font-bold text-slate-950 mt-1 truncate max-w-md">{activeDraft.fileName}</h2>
+                      <p className="text-[10px] font-semibold text-slate-500 mt-1">
+                        Analyzed on {new Date(activeDraft.createdAt).toLocaleDateString('tr-TR')} &bull; Size: {Math.round(activeDraft.fileSize / 1024)} KB
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Dial 1: AI Score */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Written Prob.</p>
+                      <div className="relative flex items-center justify-center py-2">
+                        <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-bold text-base ${
+                          activeDraft.aiScore > 50 
+                            ? 'border-rose-500 text-rose-700 bg-rose-50/20' 
+                            : activeDraft.aiScore > 20 
+                            ? 'border-amber-500 text-amber-700 bg-amber-50/20' 
+                            : 'border-emerald-500 text-emerald-700 bg-emerald-50/20'
+                        }`}>
+                          {activeDraft.aiScore}%
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed font-semibold text-slate-600">
+                        {activeDraft.aiScore > 50 
+                          ? 'High probability of LLM generated phrases.' 
+                          : activeDraft.aiScore > 20 
+                          ? 'Moderate mix of formal constructs.' 
+                          : 'Scholarly signature is highly human.'}
+                      </p>
+                    </div>
+
+                    {/* Dial 2: Citations cross-checked */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Citations Cataloged</p>
+                      <div className="relative flex items-center justify-center py-2">
+                        <div className="w-16 h-16 rounded-full border-4 border-indigo-600 flex items-center justify-center font-bold text-base text-slate-900 bg-indigo-50/20">
+                          {activeDraft.citationCount}
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed font-semibold text-slate-600">
+                        Identified and formatted bibliography items successfully.
+                      </p>
+                    </div>
+
+                    {/* Dial 3: Grammar long sentences */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Style Warnings</p>
+                      <div className="relative flex items-center justify-center py-2">
+                        <div className="w-16 h-16 rounded-full border-4 border-slate-800 flex items-center justify-center font-bold text-base text-slate-900 bg-slate-50">
+                          {activeDraft.longSentences + (activeDraft.passiveVoiceCount > 20 ? 1 : 0)}
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed font-semibold text-slate-600">
+                        Long sentences (&gt;30 words) or passive construction alerts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-panels for Bibliography Validation & Style audit */}
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Left panel: Cross Reference citations check */}
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                    <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-1.5">
+                      <ShieldCheck size={16} className="text-indigo-600" />
+                      Bibliography Matcher
+                    </h4>
+                    
+                    {activeDraft.unresolvedRefs.trim() === '' ? (
+                      <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-2xl flex gap-2.5 text-xs font-medium leading-relaxed">
+                        <CheckCircle size={16} className="shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Bibliography cross-reference clear!</p>
+                          <p className="text-[10px] text-emerald-700 mt-0.5">All identified citations successfully match records cataloged in your Source Manager library.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-2xl flex gap-2.5 text-xs font-medium leading-relaxed">
+                          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-bold">Missing bibliography entries</p>
+                            <p className="text-[10px] text-amber-700 mt-0.5">The following references were cited in your text but do not exist in your catalog library:</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
+                          {activeDraft.unresolvedRefs.split(',').map((ref, i) => (
+                            <div key={i} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 flex items-center justify-between text-xs font-medium">
+                              <span className="text-slate-800 italic pr-2">({ref.trim()})</span>
+                              <span className="text-[9px] uppercase tracking-wider bg-rose-50 text-rose-700 rounded-full px-2 py-0.5 font-bold shrink-0">Unregistered</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right panel: Style Complexity report */}
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                    <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-1.5">
+                      <Award size={16} className="text-indigo-600" />
+                      Scholarly Readability Audit
+                    </h4>
+                    <div className="space-y-3 text-xs leading-relaxed font-medium">
+                      <div className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-1.5">
+                        <div className="flex justify-between font-bold text-slate-800">
+                          <span>Long Sentences (&gt;30 words)</span>
+                          <span className="text-slate-950">{activeDraft.longSentences} found</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          Sentences longer than 30 words impair comprehension. Break these down to improve flow.
+                        </p>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-1.5">
+                        <div className="flex justify-between font-bold text-slate-800">
+                          <span>Passive Voice Density</span>
+                          <span className="text-slate-950">{activeDraft.passiveVoiceCount} indicators</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-normal">
+                          Overusing passive structures makes writing indirect. Try active verbs (e.g. "We calculated..." instead of "It was calculated...").
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white p-20 text-center shadow-sm">
+                <ShieldCheck size={48} className="text-slate-200 mx-auto mb-4" />
+                <h3 className="text-base font-bold text-slate-900">Upload or Select a Draft to Audit</h3>
+                <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Drag and drop your full PDF or Word thesis draft on the left. The auditor will check its AI-written probability score, reference logs, and active style parameters.
+                </p>
               </div>
             )}
           </div>
