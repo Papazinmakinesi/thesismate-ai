@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, ArrowRight, Loader2, Sparkles, RefreshCw, AlertCircle, 
   CheckCircle, FileText, BarChart2, BookOpen, UserCheck, UploadCloud, 
-  Trash2, HelpCircle, AlertTriangle, Eye, ShieldAlert, Award 
+  Trash2, HelpCircle, AlertTriangle, Eye, ShieldAlert, Award, Printer, X 
 } from 'lucide-react';
 
 const colloquialDict: Record<string, string> = {
@@ -59,6 +59,9 @@ export default function ChapterCheckerPage() {
   const [activeDraft, setActiveDraft] = useState<ThesisDraft | null>(null);
   const [uploadingDraft, setUploadingDraft] = useState(false);
   const [draftFile, setDraftFile] = useState<File | null>(null);
+
+  // Printing report state
+  const [isPrintingAudit, setIsPrintingAudit] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -495,6 +498,13 @@ export default function ChapterCheckerPage() {
                         Analyzed on {new Date(activeDraft.createdAt).toLocaleDateString('tr-TR')} &bull; Size: {Math.round(activeDraft.fileSize / 1024)} KB
                       </p>
                     </div>
+                    <button
+                      onClick={() => setIsPrintingAudit(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm transition hover:bg-slate-50 active:scale-95 shrink-0"
+                    >
+                      <Printer size={14} />
+                      Export PDF
+                    </button>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-3">
@@ -626,6 +636,155 @@ export default function ChapterCheckerPage() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* --- PRINT THESIS AUDIT MODAL OVERLAY --- */}
+      {isPrintingAudit && activeDraft && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-text">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl relative border border-slate-200">
+            {/* Control Bar */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0 bg-slate-50/50">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Printer size={18} className="text-indigo-600" />
+                Academic Thesis Audit Report
+              </h3>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition active:scale-95 shadow-sm"
+                >
+                  <Printer size={14} />
+                  Print / Save PDF
+                </button>
+                <button
+                  onClick={() => setIsPrintingAudit(false)}
+                  className="rounded-xl border border-slate-200 text-slate-500 hover:text-slate-950 p-2 bg-white transition"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Block */}
+            <div id="printable-area" className="p-8 md:p-12 overflow-y-auto flex-1 space-y-8 select-text text-slate-950 font-serif">
+              {/* Report Header */}
+              <div className="text-center space-y-2 border-b-2 border-slate-950 pb-6">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-sans font-bold uppercase tracking-widest text-slate-500">
+                  <Award size={15} />
+                  ThesisMate AI &bull; Verification Index
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-sans">
+                  Comprehensive Academic Draft Audit Report
+                </h1>
+                <p className="text-xs font-medium font-sans text-slate-500">
+                  Document analyzed: <strong className="text-indigo-600">{activeDraft.fileName}</strong> &bull; Date: {new Date(activeDraft.createdAt).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+
+              {/* Draft Info Grid */}
+              <div className="grid grid-cols-4 gap-4 text-xs font-sans font-medium text-slate-600 border-b border-slate-100 pb-4">
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">File Size</p>
+                  <p className="text-slate-800 mt-1">{Math.round(activeDraft.fileSize / 1024)} KB</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">Word Count</p>
+                  <p className="text-slate-800 mt-1">{activeDraft.textLength} words</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">Citations</p>
+                  <p className="text-slate-800 mt-1">{activeDraft.citationCount} found</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">AI Probability</p>
+                  <p className={`mt-1 font-bold ${activeDraft.aiScore > 35 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {activeDraft.aiScore}% Score
+                  </p>
+                </div>
+              </div>
+
+              {/* Heuristics & Recommendations */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-sans font-bold text-slate-900 uppercase tracking-wider border-b border-slate-900 pb-1.5">
+                  1. AI Written Index & Guidance
+                </h3>
+                <div className="p-4 bg-slate-50 border border-slate-150 rounded-2xl space-y-2 text-xs font-sans">
+                  <p className="font-bold text-slate-900">
+                    Detection Status: {activeDraft.aiScore > 50 ? 'Action Required' : activeDraft.aiScore > 20 ? 'Moderate Align' : 'Highly Human/Compliant'}
+                  </p>
+                  <p className="text-slate-600 leading-relaxed font-medium">
+                    {activeDraft.aiScore > 50 
+                      ? 'Recommendation: The text displays high transition density (excessive usage of "moreover", "therefore") and highly uniform sentence structural length variance, standard markers of ChatGPT generation. Revise and rewrite sections using diversified, active sentence structures.'
+                      : activeDraft.aiScore > 20
+                      ? 'Recommendation: Standard academic compliance matches. Ensure your empirical sections use active voice formulations to keep the vocabulary percentage natural.'
+                      : 'Recommendation: Excellent work! The draft displays highly organic perplexity variance indices, which are robust indicators of manual academic writing.'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Bibliography Matches */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-sans font-bold text-slate-900 uppercase tracking-wider border-b border-slate-900 pb-1.5">
+                  2. Cross-Reference Citation Log
+                </h3>
+                {activeDraft.unresolvedRefs.trim() === '' ? (
+                  <p className="text-xs font-sans text-emerald-800 bg-emerald-50/50 p-3 rounded-xl font-semibold">
+                    ✓ All cited items in text are fully matching entries cataloged in your active bibliography source library.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-sans font-bold text-rose-700 bg-rose-50/50 p-3 rounded-xl">
+                      ⚠ The following parenthetical citations were identified in the text but have NO matching entry in your Source Manager library:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-sans">
+                      {activeDraft.unresolvedRefs.split(',').map((ref, idx) => (
+                        <div key={idx} className="border border-slate-100 p-2.5 rounded-xl bg-slate-50/55 italic font-medium">
+                          ({ref.trim()}) - Missing Catalog Source Record
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Readability style log */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-sans font-bold text-slate-900 uppercase tracking-wider border-b border-slate-900 pb-1.5">
+                  3. Language Readability & Structural Style
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-xs font-sans">
+                  <div className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 space-y-1">
+                    <p className="font-bold text-slate-900">Passive Voice: {activeDraft.passiveVoiceCount} instances</p>
+                    <p className="text-slate-500 leading-normal text-[11px]">
+                      High passive voice frequencies distance the author from assertions. Revise passive phrases into direct scholarly actions.
+                    </p>
+                  </div>
+                  <div className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 space-y-1">
+                    <p className="font-bold text-slate-900">Long Sentences: {activeDraft.longSentences} found</p>
+                    <p className="text-slate-500 leading-normal text-[11px]">
+                      Citing sentences exceeding 30 words reduces thesis clarity. Segment complex sentences to strengthen readability indexes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Signature Block */}
+              <div className="pt-12 grid grid-cols-2 gap-8 text-xs font-sans font-bold text-slate-800 border-t border-slate-100">
+                <div className="space-y-8">
+                  <p className="uppercase tracking-widest text-[9px] text-slate-400">Student Researcher Sign-off</p>
+                  <div className="border-b border-slate-300 w-44 mt-4 h-6"></div>
+                  <p className="text-[11px] font-semibold text-slate-900 mt-1">Date Signature</p>
+                </div>
+                <div className="space-y-8">
+                  <p className="uppercase tracking-widest text-[9px] text-slate-400">Academic Review Sign-off</p>
+                  <div className="border-b border-slate-300 w-44 mt-4 h-6"></div>
+                  <p className="text-[11px] font-semibold text-slate-900 mt-1">Reviewer Signature</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
