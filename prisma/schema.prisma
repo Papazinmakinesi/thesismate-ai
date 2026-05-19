@@ -1,0 +1,67 @@
+// ThesisMate AI – Prisma schema
+// Uses SQLite for local MVP development (no PostgreSQL required)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Thesis settings – single record holding the user's thesis metadata
+model Thesis {
+  id                String             @id @default(cuid())
+  title             String
+  topic             String
+  aim               String
+  researchQuestions String             // stored as JSON string for SQLite compatibility
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  sources           Source[]
+  comments          Comment[]
+  matrices          LiteratureMatrix[]
+}
+
+// Academic source – journal, book, conference paper, etc.
+model Source {
+  id            String   @id @default(cuid())
+  title         String
+  author        String   @default("")
+  year          Int      @default(0)
+  sourceType    String   @default("Journal Article")
+  summary       String   @default("")
+  keywords      String   @default("") // comma-separated for SQLite
+  chapter       String   @default("")
+  extractedText String   @default("")
+  filePath      String   @default("") // local file path for uploaded docs
+  createdAt     DateTime @default(now())
+  thesis        Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  thesisId      String
+}
+
+// Supervisor comment linked to a chapter with status tracking
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  chapter   String   @default("")
+  status    String   @default("TODO")      // TODO | IN_PROGRESS | DONE
+  priority  String   @default("MEDIUM")    // LOW | MEDIUM | HIGH
+  createdAt DateTime @default(now())
+  thesis    Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  thesisId  String
+}
+
+// Literature matrix row – one per source analysis
+model LiteratureMatrix {
+  id            String @id @default(cuid())
+  source        String
+  method        String @default("")
+  keyFindings   String @default("")
+  limitations   String @default("")
+  relevance     String @default("")
+  citationUsage String @default("")
+  thesis        Thesis @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  thesisId      String
+}
