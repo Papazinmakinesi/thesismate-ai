@@ -10,13 +10,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Thesis settings – single record holding the user's thesis metadata
+// Thesis settings – single record holding the user's thesis metadata and custom API configs
 model Thesis {
   id                String             @id @default(cuid())
   title             String
   topic             String
   aim               String
   researchQuestions String             // stored as JSON string for SQLite compatibility
+  apiKey            String             @default("") // custom user API key for live GPT-4 / Gemini RAG queries
+  apiModel          String             @default("gpt-4o-mini") // active model selection
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   sources           Source[]
@@ -37,8 +39,19 @@ model Source {
   extractedText String   @default("")
   filePath      String   @default("") // local file path for uploaded docs
   createdAt     DateTime @default(now())
+  annotations   Annotation[]
   thesis        Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
   thesisId      String
+}
+
+// Annotation notepad model linked to an individual source
+model Annotation {
+  id        String   @id @default(cuid())
+  quote     String   // highlighted text fragment from source
+  note      String   // student's active analytical reflection
+  createdAt DateTime @default(now())
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceId  String
 }
 
 // Supervisor comment linked to a chapter with status tracking

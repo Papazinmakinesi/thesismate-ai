@@ -22,6 +22,8 @@ export async function GET() {
             'How can campus transport be made low-carbon and inclusive?',
             'What are the critical policy levers for thesis implementation?',
           ]),
+          apiKey: '',
+          apiModel: 'gpt-4o-mini',
         },
         include: {
           sources: true,
@@ -39,7 +41,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const { title, topic, aim, researchQuestions } = await request.json();
+    const { title, topic, aim, researchQuestions, apiKey, apiModel } = await request.json();
     let thesis = await prisma.thesis.findFirst();
 
     if (!thesis) {
@@ -49,6 +51,8 @@ export async function PUT(request: Request) {
           topic: topic || '',
           aim: aim || '',
           researchQuestions: typeof researchQuestions === 'string' ? researchQuestions : JSON.stringify(researchQuestions || []),
+          apiKey: apiKey !== undefined ? apiKey : '',
+          apiModel: apiModel || 'gpt-4o-mini',
         },
       });
     } else {
@@ -61,6 +65,8 @@ export async function PUT(request: Request) {
           researchQuestions: researchQuestions !== undefined 
             ? (typeof researchQuestions === 'string' ? researchQuestions : JSON.stringify(researchQuestions))
             : thesis.researchQuestions,
+          apiKey: apiKey !== undefined ? apiKey : thesis.apiKey,
+          apiModel: apiModel !== undefined ? apiModel : thesis.apiModel,
         },
       });
     }

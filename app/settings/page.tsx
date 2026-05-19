@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Save, Loader2, Sparkles, AlertCircle, Check, 
-  HelpCircle, Trash2, Plus, FileText 
+  Trash2, Key, Cpu, HelpCircle 
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -12,6 +12,10 @@ export default function SettingsPage() {
   const [aim, setAim] = useState('');
   const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
   const [newQuestion, setNewQuestion] = useState('');
+
+  // API Configuration Fields
+  const [apiKey, setApiKey] = useState('');
+  const [apiModel, setApiModel] = useState('gpt-4o-mini');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +34,8 @@ export default function SettingsPage() {
       setTitle(data.title || '');
       setTopic(data.topic || '');
       setAim(data.aim || '');
+      setApiKey(data.apiKey || '');
+      setApiModel(data.apiModel || 'gpt-4o-mini');
       
       let rqs: string[] = [];
       if (data.researchQuestions) {
@@ -38,7 +44,6 @@ export default function SettingsPage() {
             ? JSON.parse(data.researchQuestions) 
             : data.researchQuestions;
         } catch (e) {
-          // Fallback if not JSON string
           rqs = [data.researchQuestions];
         }
       }
@@ -69,6 +74,8 @@ export default function SettingsPage() {
           topic,
           aim,
           researchQuestions,
+          apiKey,
+          apiModel,
         }),
       });
 
@@ -100,9 +107,9 @@ export default function SettingsPage() {
       {/* Top Banner */}
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-600">Settings</p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Thesis Configurations & Metadata</h1>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Thesis Configurations & AI Integration</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Configure the primary metadata details of your thesis research. These parameters dynamically customize the AI assistant co-pilot outputs, matrices alignment context, and dashboard indicators.
+          Configure the primary metadata details of your thesis research and secure your LLM API credentials to connect real GPT-4 / Gemini contextual co-pilot assistance.
         </p>
       </div>
 
@@ -211,6 +218,42 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* AI Integration Section */}
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 pb-3 pt-6 border-b border-slate-100">
+              <Key size={20} className="text-indigo-600" />
+              AI Service Credentials
+            </h2>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  API Key
+                  <span className="text-[9px] text-slate-400 font-normal lowercase">(stored securely in SQLite db)</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Paste your sk-... (OpenAI) or AIzaSy... (Gemini) Key"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Model Selection</label>
+                <select
+                  value={apiModel}
+                  onChange={(e) => setApiModel(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 transition"
+                >
+                  <option value="gpt-4o-mini">GPT-4o Mini (Default)</option>
+                  <option value="gpt-4o">GPT-4o (Premium)</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </select>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
               <button
                 type="submit"
@@ -245,11 +288,11 @@ export default function SettingsPage() {
               </div>
               <div className="flex gap-2">
                 <span className="text-indigo-600 font-bold">&bull;</span>
-                <p><strong>AI Context injection:</strong> All active queries automatically reference these fields to keep LLM suggestions tightly anchored to your study constraints.</p>
+                <p><strong>RAG Live Connection:</strong> Entering your key activates real API calls in `/api/chat`. No local config file reboots needed!</p>
               </div>
               <div className="flex gap-2">
                 <span className="text-indigo-600 font-bold">&bull;</span>
-                <p><strong>Database model:</strong> SQLite database ensures fast updates and reliable schema synchronization.</p>
+                <p><strong>Security:</strong> Credentials remain hosted on your machine within the local SQLite instance.</p>
               </div>
             </div>
           </div>
